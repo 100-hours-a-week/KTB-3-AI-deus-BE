@@ -31,7 +31,6 @@ class LoginRequest(BaseModel):
         return v
 
 
-
 def authenticate_user(email: str, password: str) -> dict | None:
     # 대충 DB에서 검색 로직
     db = [

@@ -28,6 +28,7 @@ class TestLoginAPI:
             "name": "test"
         }
 
+
     def test_login_fail_wrong_credentials(self):
         """없는 인증 정보로 로그인 실패"""
         with patch("main.authenticate_user", return_value=None):
@@ -41,6 +42,7 @@ class TestLoginAPI:
 
         assert response.status_code == 403
         assert response.json()["detail"] == "fail login"
+
 
     def test_login_invalid_email_format(self):
         """잘못된 이메일 형식"""
@@ -56,6 +58,7 @@ class TestLoginAPI:
         assert "error" in response.json()
         assert "요청 데이터가 올바르지 않습니다" in response.json()["error"]
 
+
     def test_login_invalid_password_format(self):
         """잘못된 비밀번호 형식 - 특수문자 없음"""
         response = client.post(
@@ -68,6 +71,7 @@ class TestLoginAPI:
 
         assert response.status_code == 422
         assert "error" in response.json()
+
 
     def test_login_password_too_short(self):
         """비밀번호 길이 부족 (8자 미만)"""
@@ -82,6 +86,7 @@ class TestLoginAPI:
         assert response.status_code == 422
         assert "error" in response.json()
 
+
     def test_login_password_too_long(self):
         """비밀번호 길이 초과 (20자 초과)"""
         response = client.post(
@@ -95,6 +100,7 @@ class TestLoginAPI:
         assert response.status_code == 422
         assert "error" in response.json()
 
+
     def test_login_missing_email(self):
         """이메일 누락"""
         response = client.post(
@@ -106,6 +112,7 @@ class TestLoginAPI:
 
         assert response.status_code == 422
         assert "error" in response.json()
+
 
     def test_login_missing_password(self):
         """비밀번호 누락"""
@@ -119,12 +126,14 @@ class TestLoginAPI:
         assert response.status_code == 422
         assert "error" in response.json()
 
+
     def test_login_empty_body(self):
         """빈 요청 바디"""
         response = client.post("/login", json={})
 
         assert response.status_code == 422
         assert "error" in response.json()
+
 
     def test_login_password_no_uppercase(self):
         """비밀번호 대문자 없음"""
@@ -138,6 +147,7 @@ class TestLoginAPI:
 
         assert response.status_code == 422
 
+
     def test_login_password_no_lowercase(self):
         """비밀번호 소문자 없음"""
         response = client.post(
@@ -150,6 +160,7 @@ class TestLoginAPI:
 
         assert response.status_code == 422
 
+
     def test_login_password_no_digit(self):
         """비밀번호 숫자 없음"""
         response = client.post(
@@ -161,6 +172,7 @@ class TestLoginAPI:
         )
 
         assert response.status_code == 422
+
 
     @pytest.mark.parametrize("email,password", [
         ("user@test.com", "Valid123!"),
@@ -178,6 +190,7 @@ class TestLoginAPI:
             )
 
         assert response.status_code == 200
+
 
     @pytest.mark.parametrize("invalid_email", [
         "notanemail",
@@ -197,3 +210,5 @@ class TestLoginAPI:
         )
 
         assert response.status_code == 422
+
+

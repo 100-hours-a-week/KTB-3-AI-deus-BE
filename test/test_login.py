@@ -10,6 +10,7 @@ client = TestClient(app)
 class TestLoginAPI:
     """로그인 API 테스트"""
 
+    # ================== 성공 테스트 =========================
     def test_login_success(self):
         """정상적인 로그인 테스트"""
 
@@ -25,10 +26,29 @@ class TestLoginAPI:
         assert response.json() == {
             "email": "test@example.com",
             "password": "Test1234!",
-            "name": "test"
+            "nickname": "test",
+            "user_profile_image_url": "image_storage/test"
         }
 
+    @pytest.mark.parametrize("email,password", [
+        ("user@test.com", "Valid123!"),
+        ("admin@company.co.kr", "Admin2024@"),
+        ("test.user+tag@example.org", "MyP@ssw0rd"),
+    ])
+    def test_login_various_valid_formats(self, email, password):
+        """다양한 유효한 형식 테스트"""
+        mock_user = {"id": 1, "email": email}
 
+        with patch("main.authenticate_user", return_value=mock_user):
+            response = client.post(
+                "/login",
+                json={"email": email, "password": password}
+            )
+
+        assert response.status_code == 200
+
+
+    # ================== 싪 테스트 =========================
     def test_login_fail_wrong_credentials(self):
         """없는 인증 정보로 로그인 실패"""
         with patch("main.authenticate_user", return_value=None):
@@ -172,24 +192,6 @@ class TestLoginAPI:
         )
 
         assert response.status_code == 422
-
-
-    @pytest.mark.parametrize("email,password", [
-        ("user@test.com", "Valid123!"),
-        ("admin@company.co.kr", "Admin2024@"),
-        ("test.user+tag@example.org", "MyP@ssw0rd"),
-    ])
-    def test_login_various_valid_formats(self, email, password):
-        """다양한 유효한 형식 테스트"""
-        mock_user = {"id": 1, "email": email}
-
-        with patch("main.authenticate_user", return_value=mock_user):
-            response = client.post(
-                "/login",
-                json={"email": email, "password": password}
-            )
-
-        assert response.status_code == 200
 
 
     @pytest.mark.parametrize("invalid_email", [

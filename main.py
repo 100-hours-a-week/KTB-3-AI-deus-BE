@@ -8,7 +8,30 @@ import re
 EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 PW_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$')
 
-app = FastAPI()    
+class UserData(BaseModel):
+    email: str = Field(..., description="사용자 이메일")
+    password: str = Field(..., description="사용자 비밀번호")
+    nickname: str = Field(..., description="사용자 닉네임")
+    user_profile_image_url: str = Field(..., description="사용자 프로필 이미지")
+
+user = [
+    {"email": "test@example.com", "password": "Test1234!", "nickname": "test"},
+    {"email": "user@test.com", "password": "Valid123!", "nickname": "user"},
+    {"email": "admin@company.co.kr", "password": "Admin2024@", "nickname": "admin"},
+    {"email": "test.user+tag@example.org", "password": "MyP@ssw0rd", "nickname": "foo"},
+]
+
+db = []
+
+for i in user:
+    db.append(UserData(
+        email=i['email'],
+        password=i['password'],
+        nickname=i['nickname'],
+        user_profile_image_url="image_storage/" + i['nickname']
+    ))
+
+app = FastAPI()
 
 class LoginRequest(BaseModel):
     email: str = Field(..., description="사용자 이메일")
@@ -33,15 +56,10 @@ class LoginRequest(BaseModel):
 
 def authenticate_user(email: str, password: str) -> dict | None:
     # 대충 DB에서 검색 로직
-    db = [
-        {"email": "test@example.com", "password": "Test1234!", "name": "test"},
-        {"email": "user@test.com", "password": "Valid123!", "name": "user"},
-        {"email": "admin@company.co.kr", "password": "Admin2024@", "name": "admin"},
-        {"email": "test.user+tag@example.org", "passwor": "MyP@ssw0rd", "name": "foo"},
-    ]
+    
     # 검색해서 있으면 정보 딕션너리 반환
     for user_data in db:
-        if user_data['email'] == email and user_data['password'] == password:
+        if user_data.email == email and user_data.password == password:
             return user_data
     # 없으면 None을 반환
     return None
@@ -70,6 +88,7 @@ async def login(login_request: LoginRequest):
         raise HTTPException(status_code=403, detail="fail login")
 
     return user_data
+
 
 
 

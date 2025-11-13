@@ -11,6 +11,9 @@ NICKNAME_RE = re.compile(r'^\S+$')
 
 
 class UserData(BaseModel):
+    """
+    DB에 저장되는 사용자 정보
+    """
     email: str = Field(..., description="사용자 이메일")
     password: str = Field(..., description="사용자 비밀번호")
     nickname: str = Field(..., description="사용자 닉네임")
@@ -52,6 +55,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 def search_user_by_nickname(nickname: str) -> UserData | None:
+    """
+    닉네임으로 유저 찾기
+
+    Args:
+        nickname (str): 검색할 유저 닉네임
+
+    Returns:
+        UserData | None: 
+            해당 닉네임이 있으면 UserData, 없으면 None
+    """
+
     for user_data in db:
         if user_data.nickname == nickname:
             return user_data
@@ -59,13 +73,38 @@ def search_user_by_nickname(nickname: str) -> UserData | None:
 
 
 def search_user_by_email(email: str) -> UserData | None:
+    """
+    DB에서 email을 이용하여 사용자를 조회
+
+    Args:
+        email (str): 검색에 사용될 email
+
+    Returns:
+        UserData | None: DB에 사용자가 있으면 유저 데이터 반환
+    """
     for user_data in db:
         if user_data.email == email:
             return user_data
     return None
 
 
-def authenticate_user(email: str, password: str) -> dict | None:
+def authenticate_user(email: str, password: str) -> UserData | None:
+    """
+    DB에서 사용자를 검색하고 인증을 수행하는 함수
+
+    이메일과 비밀번호를 검증하여 사용자 인증을 처리한다
+    DB에서 이메일로 사용자를 검색한 후,
+    비밀번호를 이용하여 검증한다
+
+    Args:
+        email (str): 인증을 원하는 사용자 이메일 주소
+        password (str): 검증할 비밀번호
+
+    Returns:
+        UserData | None: 인증 성공시 사용자 정보를 반환
+                        인증 실패시 None 반환
+    
+    """
     # 대충 DB에서 검색 로직
     user_data = search_user_by_email(email)
 
@@ -103,10 +142,8 @@ def validate_nickname(nickname: str) -> bool:
     return True
 
 
-# ================= 로그인 ==========================
-class LoginRequest(BaseModel):
+class EmailRequest(BaseModel):
     email: str = Field(..., description="사용자 이메일")
-    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
 
     @field_validator('email')
     @classmethod
@@ -115,6 +152,8 @@ class LoginRequest(BaseModel):
             raise ValueError("Invalid email format")
         
         return v
+class PasswordRequest(BaseModel):
+    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
 
     @field_validator('password')
     @classmethod
@@ -125,7 +164,58 @@ class LoginRequest(BaseModel):
         return v
 
 
-@app.post("/login", status_code=200)
+class NicknameRequest(BaseModel):
+    nickname: str = Field(..., description='사용자 닉네임', max_length=10)
+
+    @field_validator('nickname')
+    @classmethod
+    def validate_nickname(cls, v: str) -> str:
+        if not validate_nickname(v):
+            raise ValueError("Invalid nickname format")
+
+        return v
+    
+
+class PasswordRequest(BaseModel):
+    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def validate_passwd(cls, v: str) -> str:
+        if not validate_password(v):
+            raise ValueError("Invalid password format")
+
+        return v
+# ================= 회원가입 =========================
+class SignupRequest(EmailRequest, PasswordRequest, NicknameRequest):
+    pass
+
+class SignupData(BaseModel):
+    user_id: int = Field(...)
+
+class SignupResopnse(BaseModel):
+    message: str = Field(...)
+    data: SignupData = Field(...)
+
+
+@app.post("/users/signup", status_code=201)
+async def signup(signup_request: SignupRequest):
+
+    user_data = search_user_by_email(signup_request.email)
+
+    return SignupResopnse(
+        message="signup_success",
+        data=SignupData(
+            user_id=user_data.id
+        )
+    )
+
+# ================= 로그인 ==========================
+class LoginRequest(EmailRequest, PasswordRequest):
+    pass
+    
+
+@app.post("/users/login", status_code=200)
 async def login(login_request: LoginRequest):
     # 형식 검증: 솔직히 이건 프런트의 몫이다.
 
@@ -211,6 +301,3 @@ async def register_user(register_request: RegisterRequest):
     return {
         "data": user_data
     }
-
-
-

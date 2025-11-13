@@ -33,6 +33,8 @@ for i in user:
         user_profile_image_url="image_storage/" + i['nickname']
     ))
 
+
+
 app = FastAPI()
 
 
@@ -60,6 +62,19 @@ def search_user_by_email(email: str) -> UserData | None:
     for user_data in db:
         if user_data.email == email:
             return user_data
+    return None
+
+
+def authenticate_user(email: str, password: str) -> dict | None:
+    # 대충 DB에서 검색 로직
+    user_data = search_user_by_email(email)
+
+    if user_data == None:
+        return None
+    # 검색해서 있으면 정보 딕션너리 반환
+    if user_data.password == password:
+        return user_data
+    # 없으면 None을 반환
     return None
 
 
@@ -110,19 +125,6 @@ class LoginRequest(BaseModel):
         return v
 
 
-def authenticate_user(email: str, password: str) -> dict | None:
-    # 대충 DB에서 검색 로직
-    user_data = search_user_by_email(email)
-
-    if user_data == None:
-        return None
-    # 검색해서 있으면 정보 딕션너리 반환
-    if user_data.password == password:
-        return user_data
-    # 없으면 None을 반환
-    return None
-
-
 @app.post("/login", status_code=200)
 async def login(login_request: LoginRequest):
     # 형식 검증: 솔직히 이건 프런트의 몫이다.
@@ -137,8 +139,8 @@ async def login(login_request: LoginRequest):
     }
 
 
-# ================ 회원 추가 ===================
-class RegisterRequest(LoginRequest):
+# ================ 회원 정보 수정 ===============
+class ChangeUserDate(LoginRequest):
     nickname: str = Field(..., description='사용자 닉네임', max_length=10)
     profile_image: str = Field(..., description='사용자 프로필 사진')
 
@@ -149,6 +151,24 @@ class RegisterRequest(LoginRequest):
             raise ValueError("Invalid nickname format")
 
         return v
+
+
+@app.patch("/user/{email}")
+async def update_profile(change_user_data: ChangeUserDate):
+    
+    user_data = search_user_by_email(change_user_data.email)
+    
+    user_data.nickname = change_user_data.nickname
+    user_data.user_profile_image_url = change_user_data
+
+    return {
+        "data": user_data
+    }
+    
+
+# ================ 회원 추가 ===================
+class RegisterRequest(LoginRequest, ChangeUserDate):
+    pass
 
 
 @app.patch("/register", status_code=201)
@@ -177,11 +197,4 @@ async def register_user(register_request: RegisterRequest):
     }
 
 
-# ================ 회원 정보 수정 ===============
-def updata_user(register_request: RegisterRequest):
-    pass
 
-
-@app.patch("/user/{email}/profile")
-async def update_profile():
-    pass

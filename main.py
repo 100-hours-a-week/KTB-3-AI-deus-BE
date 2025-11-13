@@ -36,9 +36,29 @@ for i in user:
 app = FastAPI()
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    err = exc.errors()[0]
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "요청 데이터가 올바르지 않습니다",
+            "type": err['type'],
+            "details": err['msg']
+        }
+    )
+
+
 def search_user_by_nickname(nickname: str) -> UserData | None:
     for user_data in db:
         if user_data.nickname == nickname:
+            return user_data
+    return None
+
+
+def search_user_by_email(email: str) -> UserData | None:
+    for user_data in db:
+        if user_data.email == email:
             return user_data
     return None
 
@@ -67,6 +87,7 @@ def validate_nickname(nickname: str) -> bool:
         return False
     return True
 
+
 # ================= 로그인 ==========================
 class LoginRequest(BaseModel):
     email: str = Field(..., description="사용자 이메일")
@@ -89,13 +110,6 @@ class LoginRequest(BaseModel):
         return v
 
 
-def search_user_by_email(email: str) -> UserData | None:
-    for user_data in db:
-        if user_data.email == email:
-            return user_data
-    return None
-
-
 def authenticate_user(email: str, password: str) -> dict | None:
     # 대충 DB에서 검색 로직
     user_data = search_user_by_email(email)
@@ -107,19 +121,6 @@ def authenticate_user(email: str, password: str) -> dict | None:
         return user_data
     # 없으면 None을 반환
     return None
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    err = exc.errors()[0]
-    return JSONResponse(
-        status_code=422,
-        content={
-            "error": "요청 데이터가 올바르지 않습니다",
-            "type": err['type'],
-            "details": err['msg']
-        }
-    )
 
 
 @app.post("/login", status_code=200)
@@ -149,9 +150,9 @@ class RegisterRequest(LoginRequest):
 
         return v
 
+
 @app.patch("/register", status_code=201)
 async def register_user(register_request: RegisterRequest):
-    
 
     if search_user_by_email(register_request.email) is not None:
         raise HTTPException(

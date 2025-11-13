@@ -157,6 +157,9 @@ class ChangeUserDate(LoginRequest):
 async def update_profile(change_user_data: ChangeUserDate):
     
     user_data = search_user_by_email(change_user_data.email)
+
+    if user_data is None:
+        raise HTTPException(status_code=403, detail="fail to find user")
     
     user_data.nickname = change_user_data.nickname
     user_data.user_profile_image_url = change_user_data
@@ -169,6 +172,9 @@ async def update_profile(change_user_data: ChangeUserDate):
 async def update_password(change_user_data: LoginRequest):
     
     user_data = search_user_by_email(change_user_data.password)
+
+    if user_data is None:
+        raise HTTPException(status_code=403, detail="fail to find user")
     
     user_data.password = change_user_data.password
 

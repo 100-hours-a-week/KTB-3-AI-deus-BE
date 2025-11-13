@@ -122,7 +122,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-@app.post("/login")
+@app.post("/login", status_code=200)
 async def login(login_request: LoginRequest):
     # 형식 검증: 솔직히 이건 프런트의 몫이다.
 
@@ -131,7 +131,9 @@ async def login(login_request: LoginRequest):
     if user_data is None:
         raise HTTPException(status_code=403, detail="fail login")
 
-    return user_data
+    return {
+        "data": user_data
+    }
 
 
 # ================ 회원 추가 ===================

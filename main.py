@@ -153,7 +153,7 @@ class ChangeUserDate(LoginRequest):
         return v
 
 
-@app.patch("/user/{email}")
+@app.patch("/user/{email}/data")
 async def update_profile(change_user_data: ChangeUserDate):
     
     user_data = search_user_by_email(change_user_data.email)
@@ -164,7 +164,17 @@ async def update_profile(change_user_data: ChangeUserDate):
     return {
         "data": user_data
     }
+
+@app.patch("/user/{email}/password")
+async def update_password(change_user_data: LoginRequest):
     
+    user_data = search_user_by_email(change_user_data.password)
+    
+    user_data.password = change_user_data.password
+
+    return {
+        "data": user_data
+    }
 
 # ================ 회원 추가 ===================
 class RegisterRequest(LoginRequest, ChangeUserDate):

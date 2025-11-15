@@ -9,51 +9,56 @@ EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 PW_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$')
 NICKNAME_RE = re.compile(r'^\S+$')
 
+# =============== 구조체 ========================
+class EmailRequest(BaseModel):
+    email: str = Field(..., description="사용자 이메일")
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if not validate_email(v):
+            raise ValueError("Invalid email format")
+        
+        return v
+
+class PasswordRequest(BaseModel):
+    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def validate_passwd(cls, v: str) -> str:
+        if not validate_password(v):
+            raise ValueError("Invalid password format")
+
+        return v
+
+class NicknameRequest(BaseModel):
+    nickname: str = Field(..., description='사용자 닉네임', max_length=10)
+
+    @field_validator('nickname')
+    @classmethod
+    def validate_nickname(cls, v: str) -> str:
+        if not validate_nickname(v):
+            raise ValueError("Invalid nickname format")
+
+        return v
+
+class UserPublic(BaseModel):
+    user_id: int = Field(...)
+    email: str = Field(...)
+    nickname: str = Field(...)
+    user_profile_image_url: str = Field(...)
 
 class UserData(BaseModel):
     """
     DB에 저장되는 사용자 정보
     """
+    user_id: int = Field(...)
     email: str = Field(..., description="사용자 이메일")
     password: str = Field(..., description="사용자 비밀번호")
     nickname: str = Field(..., description="사용자 닉네임")
     user_profile_image_url: str = Field(..., description="사용자 프로필 이미지")
-
-user = [
-    {"email": "test@example.com", "password": "Test1234!", "nickname": "test"},
-    {"email": "user@test.com", "password": "Valid123!", "nickname": "user"},
-    {"email": "admin@company.co.kr", "password": "Admin2024@", "nickname": "admin"},
-    {"email": "test.user+tag@example.org", "password": "MyP@ssw0rd", "nickname": "foo"},
-]
-
-db = []
-
-for i in user:
-    db.append(UserData(
-        email=i['email'],
-        password=i['password'],
-        nickname=i['nickname'],
-        user_profile_image_url="image_storage/" + i['nickname']
-    ))
-
-
-
-app = FastAPI()
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    err = exc.errors()[0]
-    return JSONResponse(
-        status_code=422,
-        content={
-            "error": "요청 데이터가 올바르지 않습니다",
-            "type": err['type'],
-            "details": err['msg']
-        }
-    )
-
-
+# =============== 유틸 함수 ========================
 def search_user_by_nickname(nickname: str) -> UserData | None:
     """
     닉네임으로 유저 찾기
@@ -117,83 +122,137 @@ def authenticate_user(email: str, password: str) -> UserData | None:
     return None
 
 
-def match_re(v: str, re: str) -> bool:
-    if re.sub(r"\s+", "", v) or not re.fullmatch(v):
+def match_re(v: str, ex: str) -> bool:
+    """
+    공백의 유무를 확인하고 정규 표현식과 비교
+
+    Args:
+        v (str): 비교할 문자열
+        ex (str): 비교할 정규표현식
+
+    Returns:
+        bool: _description_
+    """
+    if bool(re.search(r"\s", v)) or not ex.fullmatch(v):
         return False
     
     return True
 
 
 def validate_email(email: str) -> bool:
+    """
+    이메일이 규칙에 맞는 맞는지 확인
+
+    Args:
+        email (str): 확인할 이미지
+
+    Returns:
+        bool: _description_
+    """
     if not match_re(email, EMAIL_RE):
         return False
     return True
 
 
 def validate_password(passwd: str) -> bool:
+    """
+    패스워드가 규칙에 맞는지 확인
+
+    Args:
+        passwd (str): 확인할 패스워드
+
+    Returns:
+        bool: _description_
+    """
     if not match_re(passwd, PW_RE):
         return False
     return True
 
 
 def validate_nickname(nickname: str) -> bool:
+    """
+    닉네임 규칙에 맞는지 확인
+
+    Args:
+        nickname (str): 확인할 문자열
+
+    Returns:
+        bool: _description_
+    """
     if not match_re(nickname, NICKNAME_RE):
         return False
     return True
 
 
-class EmailRequest(BaseModel):
-    email: str = Field(..., description="사용자 이메일")
+def user_data_2_user_public(data:UserData) -> UserPublic:
+    """
+    DB에서 가져온 데이터를 민감한 정보를 제외한 외부로 전송한 가는 데이터로 변경
 
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        if not validate_email(v):
-            raise ValueError("Invalid email format")
-        
-        return v
-class PasswordRequest(BaseModel):
-    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
+    Args:
+        data (UserData): 변경할 데이터
 
-    @field_validator('password')
-    @classmethod
-    def validate_passwd(cls, v: str) -> str:
-        if not validate_password(v):
-            raise ValueError("Invalid password format")
+    Returns:
+        UserPublic: 외부로 전송가능한 모든 유저 정보
+    """
+    return UserPublic(
+        user_id=data.user_id,
+        email=data.email,
+        nickname=data.nickname,
+        user_profile_image_url=data.user_profile_image_url
+    )
 
-        return v
+# =============== 유사 디비 ========================
+users = [
+    {"email": "test@example.com", "password": "Test1234!", "nickname": "test", "user_profile_image_url": "http" },
+    {"email": "user@test.com", "password": "Valid123!", "nickname": "user", "user_profile_image_url": "http"},
+    {"email": "admin@company.co.kr", "password": "Admin2024@", "nickname": "admin", "user_profile_image_url": "http"},
+    {"email": "test.user+tag@example.org", "password": "MyP@ssw0rd", "nickname": "foo", "user_profile_image_url": "http"},
+]
+
+db = []
+
+def add_user(email, password, nickname, user_profile_image_url) -> None:
+    db.append(
+        UserData(
+            user_id=len(db),
+            email=email,
+            password=password,
+            nickname=nickname,
+            user_profile_image_url=user_profile_image_url
+        )
+    )
 
 
-class NicknameRequest(BaseModel):
-    nickname: str = Field(..., description='사용자 닉네임', max_length=10)
+for user in users:
+    add_user(**user)
 
-    @field_validator('nickname')
-    @classmethod
-    def validate_nickname(cls, v: str) -> str:
-        if not validate_nickname(v):
-            raise ValueError("Invalid nickname format")
+print(db)
 
-        return v
-    
 
-class PasswordRequest(BaseModel):
-    password: str = Field(..., description="사용자 비밀번호", max_length=20, min_length=8)
+# 
+app = FastAPI()
 
-    @field_validator('password')
-    @classmethod
-    def validate_passwd(cls, v: str) -> str:
-        if not validate_password(v):
-            raise ValueError("Invalid password format")
 
-        return v
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    err = exc.errors()[0]
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "요청 데이터가 올바르지 않습니다",
+            "type": err['type'],
+            "details": err['msg']
+        }
+    )
+
 # ================= 회원가입 =========================
 class SignupRequest(EmailRequest, PasswordRequest, NicknameRequest):
-    pass
+    image_url: str = Field(...)
 
 class SignupData(BaseModel):
     user_id: int = Field(...)
 
-class SignupResopnse(BaseModel):
+class SignupResponse(BaseModel):
     message: str = Field(...)
     data: SignupData = Field(...)
 
@@ -201,19 +260,37 @@ class SignupResopnse(BaseModel):
 @app.post("/users/signup", status_code=201)
 async def signup(signup_request: SignupRequest):
 
-    user_data = search_user_by_email(signup_request.email)
+    if search_user_by_email(signup_request.email) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Email already in use."
+        )
+    
+    if search_user_by_nickname(signup_request.nickname) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="nickname already in use."
+        )
+    
+    # 저장소에 이미지 업로드
+    # signup_request.image_url = 프로필 저장된 저장소 url
 
-    return SignupResopnse(
+    user_data = UserData(**signup_request)
+    db.append(user_data)
+
+    return SignupResponse(
         message="signup_success",
         data=SignupData(
-            user_id=user_data.id
+            user_id=user_data.user_id
         )
     )
-
 # ================= 로그인 ==========================
 class LoginRequest(EmailRequest, PasswordRequest):
     pass
-    
+
+class LoginResponse(BaseModel):
+    message: str = Field(...)
+    data: UserPublic = Field(...)
 
 @app.post("/users/login", status_code=200)
 async def login(login_request: LoginRequest):
@@ -223,11 +300,14 @@ async def login(login_request: LoginRequest):
     # 디비에서 이메일 검색
     if user_data is None:
         raise HTTPException(status_code=403, detail="fail login")
+    
+    print(type(user_data))
+    public_user_data = user_data_2_user_public(user_data)
 
-    return {
-        "data": user_data
-    }
-
+    return LoginResponse(
+        message="login_success",
+        data=public_user_data
+    )
 
 # ================ 회원 정보 수정 ===============
 class ChangeUserDate(LoginRequest):
@@ -267,36 +347,6 @@ async def update_password(change_user_data: LoginRequest):
         raise HTTPException(status_code=403, detail="fail to find user")
     
     user_data.password = change_user_data.password
-
-    return {
-        "data": user_data
-    }
-
-# ================ 회원 추가 ===================
-class RegisterRequest(LoginRequest, ChangeUserDate):
-    pass
-
-
-@app.patch("/register", status_code=201)
-async def register_user(register_request: RegisterRequest):
-
-    if search_user_by_email(register_request.email) is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="Email already in use."
-        )
-    
-    if search_user_by_nickname(register_request.nickname) is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="nickname already in use."
-        )
-    
-    # 저장소에 이미지 업로드
-    # register_request.profile_image = 프로필 저장된 저장소 url
-
-    user_data = UserData(**register_request)
-    db.append(user_data)
 
     return {
         "data": user_data

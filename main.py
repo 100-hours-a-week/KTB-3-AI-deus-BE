@@ -8,6 +8,7 @@ import re
 EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 PW_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$')
 NICKNAME_RE = re.compile(r'^\S+$')
+BASE_IMAGE_URL = "http"
 
 # =============== 구조체 ========================
 class EmailRequest(BaseModel):
@@ -58,6 +59,7 @@ class UserData(BaseModel):
     password: str = Field(..., description="사용자 비밀번호")
     nickname: str = Field(..., description="사용자 닉네임")
     user_profile_image_url: str = Field(..., description="사용자 프로필 이미지")
+
 # =============== 유틸 함수 ========================
 def search_user_by_nickname(nickname: str) -> UserData | None:
     """
@@ -226,8 +228,6 @@ def add_user(email, password, nickname, user_profile_image_url) -> None:
 for user in users:
     add_user(**user)
 
-print(db)
-
 
 # 
 app = FastAPI()
@@ -247,7 +247,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # ================= 회원가입 =========================
 class SignupRequest(EmailRequest, PasswordRequest, NicknameRequest):
-    image_url: str = Field(...)
+    image_url: str = Field(default=BASE_IMAGE_URL)
 
 class SignupData(BaseModel):
     user_id: int = Field(...)
@@ -275,13 +275,27 @@ async def signup(signup_request: SignupRequest):
     # 저장소에 이미지 업로드
     # signup_request.image_url = 프로필 저장된 저장소 url
 
-    add_user(
-        email=signup_request.email,
-        nickname=signup_request.nickname,
-        user_profile_image_url=signup_request.image_url
-    )
+    try:
+        add_user(
+            email=signup_request.email,
+            password=signup_request.password,
+            nickname=signup_request.nickname,
+            user_profile_image_url=signup_request.image_url
+        )
 
-    user_data = search_user_by_email(signup_request.email)
+        user_data = search_user_by_email(signup_request.email)
+
+        if user_data is None:
+            raise HTTPException(
+                status_code=500,
+                detail="User created but retrieval failed"
+            )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {e}"
+        )
 
     return SignupResponse(
         message="signup_success",
@@ -289,6 +303,7 @@ async def signup(signup_request: SignupRequest):
             user_id=user_data.user_id
         )
     )
+
 # ================= 로그인 ==========================
 class LoginRequest(EmailRequest, PasswordRequest):
     pass
@@ -306,7 +321,6 @@ async def login(login_request: LoginRequest):
     if user_data is None:
         raise HTTPException(status_code=403, detail="fail login")
     
-    print(type(user_data))
     public_user_data = user_data_2_user_public(user_data)
 
     return LoginResponse(

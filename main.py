@@ -64,7 +64,7 @@ class PostData(BaseModel):
     post_id: int = Field(...)
     title: str = Field(...)
     content: str = Field(...)
-    image_url: list[str] = Field(...)
+    image_url: list[str] = Field(..., default_factory=[])
     like: int = Field(...)
     view: int = Field(...)
     poster_id: int = Field(...)
@@ -394,12 +394,12 @@ for post in posts:
     add_dummy_post(**post)
 
 
-def add_dummy_post(
+def add_post(
     title: str,
     content: str,
     poster_id: int,
-    image_url: list[str],
-) -> None:
+    image_url: list[str] = [],
+) -> int:
     """
     포스터를 DB에 추가해주는 함수
 
@@ -408,6 +408,9 @@ def add_dummy_post(
         content (str): 포스터의 내용
         poster_id (int): 작성자
         image_url (list[str]): 포스터의 이미지
+    
+    Return:
+        int: 추가된 포스터의 id값
     """
     poster_data = search_user_by_id(poster_id)
 
@@ -426,6 +429,8 @@ def add_dummy_post(
             )
         )
 
+    return len(post_db) - 1
+
 
 # ================ 앱 ==================================
 app = FastAPI()
@@ -434,11 +439,13 @@ app = FastAPI()
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     err = exc.errors()[0]
+    print(err)
     return JSONResponse(
         status_code=422,
         content={
             "error": "요청 데이터가 올바르지 않습니다",
             "type": err['type'],
+            "loc": err['loc'],
             "details": err['msg']
         }
     )
@@ -557,6 +564,35 @@ async def get_postlist(offset: int = 0, limit:int = 20):
         message="get_postlist_success",
         data=posts,
         next=next_offset if next_offset != len(post_db) else -1
+    )
+
+# ================ 게시글 보기 =================
+class UplaodPostRequest(BaseModel):
+    title: str = Field(...)
+    content: str = Field(...)
+    image_url: list[str] = Field(...,default_factory=[])
+    poster_id: int = Field(...)
+
+class UplaodPostResponse(BaseModel):
+    message: str = Field(...)
+
+
+@app.post("/post", status_code=200)
+async def upload_post(upload_post_request: UplaodPostRequest):
+    try:
+        new_post_id = add_post(
+            title=upload_post_request.title,
+            content=upload_post_request.content,
+            poster_id=upload_post_request.poster_id,
+            image_url=upload_post_request.image_url
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500
+        )
+
+    return UplaodPostResponse(
+        message="post_success"
     )
 
 # ================ 회원 정보 수정 ===============

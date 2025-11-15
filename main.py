@@ -566,7 +566,7 @@ async def get_postlist(offset: int = 0, limit:int = 20):
         next=next_offset if next_offset != len(post_db) else -1
     )
 
-# ================ 게시글 보기 =================
+# ================ 게시글 작성 =================
 class UplaodPostRequest(BaseModel):
     title: str = Field(...)
     content: str = Field(...)

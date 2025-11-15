@@ -275,8 +275,13 @@ async def signup(signup_request: SignupRequest):
     # 저장소에 이미지 업로드
     # signup_request.image_url = 프로필 저장된 저장소 url
 
-    user_data = UserData(**signup_request)
-    db.append(user_data)
+    add_user(
+        email=signup_request.email,
+        nickname=signup_request.nickname,
+        user_profile_image_url=signup_request.image_url
+    )
+
+    user_data = search_user_by_email(signup_request.email)
 
     return SignupResponse(
         message="signup_success",
@@ -332,7 +337,7 @@ async def update_profile(change_user_data: ChangeUserDate):
         raise HTTPException(status_code=403, detail="fail to find user")
     
     user_data.nickname = change_user_data.nickname
-    user_data.user_profile_image_url = change_user_data
+    user_data.user_profile_image_url = change_user_data.profile_image
 
     return {
         "data": user_data
@@ -341,7 +346,7 @@ async def update_profile(change_user_data: ChangeUserDate):
 @app.patch("/user/{email}/password")
 async def update_password(change_user_data: LoginRequest):
     
-    user_data = search_user_by_email(change_user_data.password)
+    user_data = search_user_by_email(change_user_data.email)
 
     if user_data is None:
         raise HTTPException(status_code=403, detail="fail to find user")

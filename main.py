@@ -951,18 +951,32 @@ async def get_post(post_id: int):
         comment=comments
     )
 
-# ================ 게시글 작성 =================
+# ================ 게시글 삭제 =================
+class DeletePostRequest(BaseModel):
+    user_id: int = Field(...)
+
 class DeletePostResponse(BaseModel):
     message: str = Field(...)
 
 
 @app.delete("/post/{post_id}", status_code=200)
-async def delete_post(post_id: int):
+async def delete_post(post_id: int, delete_post_request: DeletePostRequest):
     try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(delete_post_request.user_id)
+
+        if post is None or user is None:
+            raise HTTPException(
+                status_code=404
+            )
+        
         if not delete_post_by_id(post_id):
-            HTTPException(
+            raise HTTPException(
                 status_code=400
             )
+        
+    except HTTPException as he:
+        raise he
     
     except Exception as e:
         raise HTTPException(
@@ -972,6 +986,58 @@ async def delete_post(post_id: int):
     return DeletePostResponse(
         message="post_delete_success"
     )
+
+
+# ================ 게시글 수정 =================
+class EditPostRequest(BaseModel):
+    user_id: int = Field(...)
+    title: str = Field(...)
+    content: str = Field(...)
+    image_url: list[str] = Field(...,default_factory=[])
+
+class EditPostResponse(BaseModel):
+    message: str = Field(...)
+
+
+@app.patch("/post/{post_id}", status_code=200)
+async def edit_post(post_id: int, edit_post_request: EditPostRequest):
+    try:
+        post = get_post_by_id(post_id)
+        if post is None:
+            raise HTTPException(
+                status_code=404,
+                detail="존재하지 않는 게시글 입니다."
+            )
+        
+        user = search_user_by_id(edit_post_request.user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="존재하지 않는 사용자 입니다."
+            )
+
+        if post.poster_id != user.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="게시글 작성자가 아니라서 수정할 수 없습니다."
+            )
+        
+        post.title = edit_post_request.title
+        post.content = edit_post_request.content
+        post.image_url = edit_post_request.image_url
+    
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500
+        )
+
+    return EditPostResponse(
+        message="게시글을 수정하였습니다."
+    )
+
 
 #================= 좋아요 =====================
 class LikePostRequest(BaseModel):

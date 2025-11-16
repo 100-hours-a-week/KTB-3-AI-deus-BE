@@ -300,6 +300,14 @@ def delete_post_by_id(post_id: int) -> PostData | None:
             return True
     return False
 
+def delete_like(post_id: int, user_id: int) -> bool:
+    for idx, like in enumerate(like_db):
+        if like.post_id == post_id and like.user_id == user_id:
+            del like_db[idx]
+            return True
+    
+    return False
+
 
 # =============== 유사 디비 ========================
 users = [
@@ -680,13 +688,19 @@ def update_post_like_counts():
 # 포스트의 좋아요 수 업데이트
 update_post_like_counts()
 
-def add_like(post_id: int, user_id):
+def add_like(post_id: int, user_id: int) -> bool:
+    for liked in like_db:
+        if liked.post_id == post_id and liked.user_id == user_id:
+            return False
+
     like_db.append(
         LikeData(
-            post_id,
-            user_id
+            post_id=post_id,  # 키워드 인자로 수정
+            user_id=user_id   # 키워드 인자로 수정
         )
     )
+
+    return True
 
 def add_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
     """
@@ -949,26 +963,71 @@ class LikePostResponse(BaseModel):
 
 @app.post("/post/{post_id}/like", status_code=200)
 async def like_post(post_id: int, like_post_requset: LikePostRequest):
+    
     try:
         post = get_post_by_id(post_id)
         user = search_user_by_id(like_post_requset.user_id)
 
-        if post is None or user:
+        if post is None or user is None:
             raise HTTPException(
                 status_code=404
             )
 
+        if not add_like(post_id=post_id, user_id=like_post_requset.user_id):
+            raise HTTPException(
+                status_code=400,
+                detail="이미 좋아요를 눌렀습니다."
+            ) 
+    
         post.like += 1
-
-        add_like(post_id=post_id, user_id=like_post_requset.user_id)
+    
+    except HTTPException as he:
+        raise he
     
     except Exception as e:
-        HTTPException(
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
+        
+    return LikePostResponse(
+        message="like_success"
+    )
+
+# ================ 좋아요 취소 =================
+class UnlikePostRequest(BaseModel):
+    user_id: int = Field(...)
+class UnlikePostResponse(BaseModel):
+    message: str = Field(...)
+
+@app.delete("/post/{post_id}/like", status_code=200)
+async def unlike_post(post_id: int, like_post_requset: UnlikePostRequest):
+    try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(like_post_requset.user_id)
+
+        if post is None or user is None:
+            raise HTTPException(
+                status_code=404
+            )
+
+        if not delete_like(post_id=post_id, user_id=like_post_requset.user_id):
+            raise HTTPException(
+                status_code=400
+            )
+        
+        post.like -= 1
+
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
             status_code=500
         )
     
-    return LikePostResponse(
-        message="like_success"
+    return UnlikePostResponse(
+        message="unlike_success"
     )
 
 # ================ 회원 정보 수정 ===============

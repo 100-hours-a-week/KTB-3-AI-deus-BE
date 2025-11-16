@@ -1245,17 +1245,15 @@ async def delete_comment(post_id: int, comment_delete_request: CommentDeleteRequ
 
 # ================ 회원 정보 수정 ===============
 class UserEditRequset(NicknameRequest):
-    user_id: int = Field(...)
     profile_image: str = Field(..., description='사용자 프로필 사진')
 
 class UserEditResponse(BaseModel):
     message: str = Field(...)
 
-
-@app.patch("/users/edit")
-async def edit_profile(edit_user_request: UserEditRequset):
+@app.patch("/users/{user_id}/profile")
+async def edit_profile(user_id:int, edit_user_request: UserEditRequset):
     try:
-        user = search_user_by_id(edit_user_request.user_id)
+        user = search_user_by_id(user_id)
 
         if user is None:
             raise HTTPException(
@@ -1286,3 +1284,45 @@ async def edit_profile(edit_user_request: UserEditRequset):
     return UserEditResponse(
         message="사용자 정보 수정이 완료되었습니다."
     )
+
+# ================ 비밀번호 변경 ===============
+class PasswordChangeRequest(PasswordRequest):
+    pass
+
+class PasswordChangeResponse(BaseModel):
+    message: str = Field(...)
+
+
+@app.patch("/users/{user_id}/password")
+async def change_passwd(user_id: int, password_change_request: PasswordChangeRequest):
+    try:
+        user = search_user_by_id(user_id)
+
+        if user is None:
+            raise HTTPException(
+                status_code=404, 
+                detail="사용자를 찾을 수 없습니다."
+            )
+        
+        user.password = password_change_request.password
+    
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
+
+    return PasswordChangeResponse(
+        message="비밀번호 수정이 완료되었습니다."
+    )
+
+
+
+
+
+
+
+

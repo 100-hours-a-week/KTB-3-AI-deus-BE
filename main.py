@@ -83,6 +83,10 @@ class CommentPublic(BaseModel):
     commented_date: str
     comment: str
 
+class LikeData(BaseModel):
+    post_id: int
+    user_id: int
+    
 # =============== 유틸 함수 ========================
 def search_user_by_nickname(nickname: str) -> UserData | None:
     """
@@ -580,6 +584,110 @@ def add_dummy_comment(post_id: int, user_id: int, comment_data: str, comment: st
 for comment in comments:
     add_dummy_comment(**comment)
 
+# 10개의 좋아요 더미 데이터
+likes = [
+    {
+        "post_id": 0,  # "FastAPI 시작하기" 포스트
+        "user_id": 1   # user가 좋아요
+    },
+    {
+        "post_id": 0,  # "FastAPI 시작하기" 포스트
+        "user_id": 2   # admin도 좋아요
+    },
+    {
+        "post_id": 1,  # "Python 타입 힌트" 포스트
+        "user_id": 0   # test가 좋아요
+    },
+    {
+        "post_id": 2,  # "RESTful API 설계" 포스트
+        "user_id": 3   # foo가 좋아요
+    },
+    {
+        "post_id": 5,  # "Docker로 FastAPI" 포스트
+        "user_id": 0   # test가 좋아요
+    },
+    {
+        "post_id": 5,  # "Docker로 FastAPI" 포스트
+        "user_id": 1   # user도 좋아요
+    },
+    {
+        "post_id": 6,  # "JWT 인증 구현" 포스트
+        "user_id": 2   # admin이 좋아요
+    },
+    {
+        "post_id": 9,  # "성능 최적화 팁" 포스트
+        "user_id": 1   # user가 좋아요
+    },
+    {
+        "post_id": 9,  # "성능 최적화 팁" 포스트
+        "user_id": 3   # foo도 좋아요
+    },
+    {
+        "post_id": 3,  # "Pydantic 데이터 검증" 포스트
+        "user_id": 0   # test가 좋아요
+    }
+]
+
+like_db = []
+
+def add_dummy_like(post_id: int, user_id: int) -> bool:
+    """
+    좋아요를 DB에 추가하는 함수
+
+    중복 좋아요는 방지합니다.
+
+    Args:
+        post_id: 좋아요를 누를 포스트 ID
+        user_id: 좋아요를 누르는 사용자 ID
+
+    Returns:
+        bool: 좋아요 추가 성공 여부
+    """
+    # 이미 좋아요를 눌렀는지 확인
+    for like in like_db:
+        if like.post_id == post_id and like.user_id == user_id:
+            return False  # 이미 좋아요를 누름
+
+    # 유효한 포스트와 사용자인지 확인
+    if post_id < len(post_db) and user_id < len(db):
+        like_db.append(
+            LikeData(
+                post_id=post_id,
+                user_id=user_id
+            )
+        )
+        return True
+    return False
+
+# 더미 좋아요 데이터 추가
+for like in likes:
+    add_dummy_like(**like)
+
+# like_db 데이터에 따라 각 포스트의 좋아요 수 업데이트
+def update_post_like_counts():
+    """
+    like_db의 데이터를 기반으로 각 포스트의 좋아요 수를 업데이트
+    """
+    # 모든 포스트의 좋아요 수를 0으로 초기화
+    for post in post_db:
+        post.like = 0
+
+    # like_db를 순회하며 각 포스트의 좋아요 수 계산
+    for like in like_db:
+        if like.post_id < len(post_db):
+            post_db[like.post_id].like += 1
+
+# 포스트의 좋아요 수 업데이트
+update_post_like_counts()
+
+def add_like(post_id: int, user_id):
+    like_db.append(
+        LikeData(
+            post_id,
+            user_id
+        )
+    )
+
 def add_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
     """
     댓글을 DB에 추가하는 함수
@@ -611,7 +719,6 @@ app = FastAPI()
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     err = exc.errors()[0]
-    print(err)
     return JSONResponse(
         status_code=422,
         content={
@@ -794,7 +901,6 @@ async def get_post(post_id: int):
         for comment in raw_comments:
             comments.append(comment_data_2_comment_public(comment))
 
-        print(comments)
     except Exception as e:
         raise HTTPException(
             status_code=500
@@ -833,6 +939,36 @@ async def delete_post(post_id: int):
 
     return DeletePostResponse(
         message="post_delete_success"
+    )
+
+#================= 좋아요 =====================
+class LikePostRequest(BaseModel):
+    user_id: int = Field(...)
+class LikePostResponse(BaseModel):
+    message: str = Field(...)
+
+@app.post("/post/{post_id}/like", status_code=200)
+async def like_post(post_id: int, like_post_requset: LikePostRequest):
+    try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(like_post_requset.user_id)
+
+        if post is None or user:
+            raise HTTPException(
+                status_code=404
+            )
+
+        post.like += 1
+
+        add_like(post_id=post_id, user_id=like_post_requset.user_id)
+    
+    except Exception as e:
+        HTTPException(
+            status_code=500
+        )
+    
+    return LikePostResponse(
+        message="like_success"
     )
 
 # ================ 회원 정보 수정 ===============

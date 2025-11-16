@@ -254,7 +254,7 @@ def get_post_by_id(post_id: int) -> PostData | None:
         PostData | None: DB에 사용자가 있으면 유저 데이터 반환
     """
     for post_data in post_db:
-        if post_data.post_id== post_id:
+        if post_data.post_id == post_id:
             return post_data
     return None
 
@@ -278,6 +278,25 @@ def comment_data_2_comment_public(comment_data: CommentData) -> CommentPublic:
         commented_date=comment_data.comment_data,
         comment=comment_data.comment
     )
+
+
+def delete_post_by_id(post_id: int) -> PostData | None:
+    """
+    DB에서 post_id를 이용하여 사용자를 조회
+
+    Args:
+        post_id (int): 검색에 사용될 post_id
+
+    Returns:
+        PostData | None: DB에 사용자가 있으면 유저 데이터 반환
+    """
+    for idx, post_data in enumerate(post_db):
+        if post_data.post_id == post_id:
+            del post_db[idx]
+            return True
+    return False
+
+
 # =============== 유사 디비 ========================
 users = [
     {"email": "test@example.com", "password": "Test1234!", "nickname": "test", "user_profile_image_url": "http" },
@@ -792,6 +811,28 @@ async def get_post(post_id: int):
         like=post_data.like,
         view=post_data.view,
         comment=comments
+    )
+
+# ================ 게시글 작성 =================
+class DeletePostResponse(BaseModel):
+    message: str = Field(...)
+
+
+@app.delete("/post/{post_id}", status_code=200)
+async def delete_post(post_id: int):
+    try:
+        if not delete_post_by_id(post_id):
+            HTTPException(
+                status_code=400
+            )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500
+        )
+
+    return DeletePostResponse(
+        message="post_delete_success"
     )
 
 # ================ 회원 정보 수정 ===============

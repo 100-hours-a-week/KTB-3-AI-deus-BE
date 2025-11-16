@@ -319,10 +319,18 @@ def get_comment_by_comment_id(comment_id: int) -> CommentData | None:
 
 
 def delete_comment_by_comment_id(comment_id: int) -> bool:
-    print(*comment_db)
     for idx, comment in enumerate(comment_db):
         if comment.comment_id == comment_id:
             del comment_db[idx]
+            return True
+    
+    return False
+
+
+def delete_user_by_user_id(user_id: int) -> bool:
+    for idx, user in enumerate(db):
+        if user.user_id == user_id:
+            del db[idx]
             return True
     
     return False
@@ -1319,10 +1327,37 @@ async def change_passwd(user_id: int, password_change_request: PasswordChangeReq
         message="비밀번호 수정이 완료되었습니다."
     )
 
+# ================ 회원탈퇴 =================
 
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: int):
+    try:
+        print(db)
+        user = search_user_by_id(user_id)
 
+        if user is None:
+            raise HTTPException(
+                status_code=404, 
+                detail="사용자를 찾을 수 없습니다."
+            )
+        
+        if not delete_user_by_user_id(user_id):
+            raise HTTPException(
+                status_code=400,
+                detail="사용자를 삭제할 수 없습니다."
+            )
+    
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
 
-
-
+    return {
+        "message": "사용자 삭제를 완료하였습니다."
+    }
 
 

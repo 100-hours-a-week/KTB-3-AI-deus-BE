@@ -318,6 +318,15 @@ def get_comment_by_comment_id(comment_id: int) -> CommentData | None:
     return None
 
 
+def delete_comment_by_comment_id(comment_id: int) -> bool:
+    print(*comment_db)
+    for idx, comment in enumerate(comment_db):
+        if comment.comment_id == comment_id:
+            del comment_db[idx]
+            return True
+    
+    return False
+
 # =============== 유사 디비 ========================
 users = [
     {"email": "test@example.com", "password": "Test1234!", "nickname": "test", "user_profile_image_url": "http" },
@@ -1121,6 +1130,52 @@ async def write_comment(post_id: int, comment_write_request: CommentEditRequest)
     return CommentWriteResponse(
         message="댓글을 수정하였습니다."
     )
+
+# ================ 댓글 삭제 ===================
+class CommentDeleteRequest(BaseModel):
+    comment_id: int = Field(...)
+    user_id:int = Field(...)
+
+class CommentDeleteResponse(BaseModel):
+    message: str = Field(...)
+
+@app.delete("/post/{post_id}/comment", status_code=200)
+async def delete_comment(post_id: int, comment_delete_request: CommentDeleteRequest):
+    try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(comment_delete_request.user_id)
+
+        if post is None or user is None:
+            raise HTTPException(
+                status_code=404
+            )
+        
+        comment = get_comment_by_comment_id(comment_delete_request.comment_id)
+
+        if comment is None or comment.post_id != post_id:
+            raise HTTPException(
+                status_code=404,
+                detail="수정할 댓글을 찾을 수 없습니다."
+            )
+        
+        if not delete_comment_by_comment_id(comment.comment_id):
+            raise HTTPException(
+                status_code=400,
+                detail="댓글 삭제에 실패하였습니다."
+            )
+        
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
+    return CommentDeleteResponse(
+        message="댓글을 삭제하였습니다."
+    )
+
 # ================ 회원 정보 수정 ===============
 class ChangeUserDate(LoginRequest):
     nickname: str = Field(..., description='사용자 닉네임', max_length=10)

@@ -300,6 +300,7 @@ def delete_post_by_id(post_id: int) -> PostData | None:
             return True
     return False
 
+
 def delete_like(post_id: int, user_id: int) -> bool:
     for idx, like in enumerate(like_db):
         if like.post_id == post_id and like.user_id == user_id:
@@ -307,6 +308,14 @@ def delete_like(post_id: int, user_id: int) -> bool:
             return True
     
     return False
+
+
+def get_comment_by_comment_id(comment_id: int) -> CommentData | None:
+    for comment in comment_db:
+        if comment.comment_id == comment_id:
+            return comment
+    
+    return None
 
 
 # =============== 유사 디비 ========================
@@ -1067,6 +1076,51 @@ async def write_comment(post_id: int, comment_write_request: CommentWriteRequest
         message="댓글을 추가하였습니다."
     )
 
+# ================ 댓글 수정 ===================
+class CommentEditRequest(BaseModel):
+    comment_id: int = Field(...)
+    user_id: int = Field(...)
+    comment: str = Field(...)
+
+class CommentEditResponse(BaseModel):
+    message: str = Field(...)
+
+
+@app.patch("/post/{post_id}/comment", status_code=200)
+async def write_comment(post_id: int, comment_write_request: CommentEditRequest):
+    try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(comment_write_request.user_id)
+
+        if post is None or user is None:
+            raise HTTPException(
+                status_code=404
+            )
+        
+        comment = get_comment_by_comment_id(comment_write_request.comment_id)
+
+        if comment is None or comment.post_id != post_id:
+            raise HTTPException(
+                status_code=404,
+                detail="수정할 댓글을 찾을 수 없습니다."
+            )
+        
+        time_stamp = "2001"
+
+        comment.comment = comment_write_request.comment
+        comment.comment_date = time_stamp
+
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
+    return CommentWriteResponse(
+        message="댓글을 수정하였습니다."
+    )
 # ================ 회원 정보 수정 ===============
 class ChangeUserDate(LoginRequest):
     nickname: str = Field(..., description='사용자 닉네임', max_length=10)

@@ -68,8 +68,20 @@ class PostData(BaseModel):
     like: int = Field(...)
     view: int = Field(...)
     poster_id: int = Field(...)
-    poster_image: str = Field(...)
     posted_date: str = Field(...)
+
+class CommentData(BaseModel):
+    comment_id: int
+    post_id: int
+    user_id: int
+    comment_data: str
+    comment: str
+
+class CommentPublic(BaseModel):
+    commenter_image: str
+    commenter_nickname: str
+    commented_date: str
+    comment: str
 
 # =============== 유틸 함수 ========================
 def search_user_by_nickname(nickname: str) -> UserData | None:
@@ -213,7 +225,7 @@ def validate_nickname(nickname: str) -> bool:
     return True
 
 
-def user_data_2_user_public(data:UserData) -> UserPublic:
+def user_data_2_user_public(data: UserData) -> UserPublic:
     """
     DB에서 가져온 데이터를 민감한 정보를 제외한 외부로 전송한 가는 데이터로 변경
 
@@ -230,6 +242,42 @@ def user_data_2_user_public(data:UserData) -> UserPublic:
         user_profile_image_url=data.user_profile_image_url
     )
 
+
+def get_post_by_id(post_id: int) -> PostData | None:
+    """
+    DB에서 post_id를 이용하여 사용자를 조회
+
+    Args:
+        post_id (int): 검색에 사용될 post_id
+
+    Returns:
+        PostData | None: DB에 사용자가 있으면 유저 데이터 반환
+    """
+    for post_data in post_db:
+        if post_data.post_id== post_id:
+            return post_data
+    return None
+
+
+def get_comments_by_post_id(post_id: int) -> list[CommentData]:
+    result = []
+
+    for comment in comment_db:
+        if comment.post_id == post_id:
+            result.append(comment)
+    
+    return result
+
+
+def comment_data_2_comment_public(comment_data: CommentData) -> CommentPublic:
+    commenter = search_user_by_id(comment_data.user_id)
+
+    return CommentPublic(
+        commenter_image=commenter.user_profile_image_url,
+        commenter_nickname=commenter.nickname,
+        commented_date=comment_data.comment_data,
+        comment=comment_data.comment
+    )
 # =============== 유사 디비 ========================
 users = [
     {"email": "test@example.com", "password": "Test1234!", "nickname": "test", "user_profile_image_url": "http" },
@@ -240,7 +288,7 @@ users = [
 
 db = []
 
-def add_user(email, password, nickname, user_profile_image_url) -> None:
+def add_user(email: str, password: str, nickname: str, user_profile_image_url: str) -> None:
     db.append(
         UserData(
             user_id=len(db),
@@ -384,7 +432,6 @@ def add_dummy_post(
                 like=like,
                 view=view,
                 poster_id=poster_id,
-                poster_image=poster_data.user_profile_image_url,
                 posted_date=posted_date
             )
         )
@@ -424,13 +471,119 @@ def add_post(
                 like=0,
                 view=0,
                 poster_id=poster_id,
-                poster_image=poster_data.user_profile_image_url,
                 posted_date="2000-10-11"
             )
         )
 
     return len(post_db) - 1
 
+# 10개의 댓글 더미 데이터
+comments = [
+    {
+        "post_id": 0,  # "FastAPI 시작하기" 포스트
+        "user_id": 1,  # user
+        "comment_data": "2024-01-16T09:15:00",
+        "comment": "FastAPI 정말 빠르고 좋네요! 이 글 덕분에 쉽게 시작할 수 있었습니다."
+    },
+    {
+        "post_id": 1,  # "Python 타입 힌트" 포스트
+        "user_id": 2,  # admin
+        "comment_data": "2024-01-21T11:30:00",
+        "comment": "타입 힌트는 처음에 번거로워 보였는데, 익숙해지니 디버깅이 훨씬 편해졌어요."
+    },
+    {
+        "post_id": 2,  # "RESTful API 설계" 포스트
+        "user_id": 3,  # foo
+        "comment_data": "2024-02-02T14:20:00",
+        "comment": "REST API 설계 원칙 정리가 깔끔하네요. 북마크 해둡니다!"
+    },
+    {
+        "post_id": 3,  # "Pydantic 데이터 검증" 포스트
+        "user_id": 0,  # test
+        "comment_data": "2024-02-11T10:45:00",
+        "comment": "Pydantic의 자동 검증 기능이 정말 강력합니다. 실무에서 많은 도움이 되고 있어요."
+    },
+    {
+        "post_id": 4,  # "비동기 프로그래밍" 포스트
+        "user_id": 1,  # user
+        "comment_data": "2024-02-16T15:00:00",
+        "comment": "async/await 패턴 설명이 명확해서 이해하기 쉬웠습니다. 감사합니다!"
+    },
+    {
+        "post_id": 5,  # "Docker로 FastAPI" 포스트
+        "user_id": 3,  # foo
+        "comment_data": "2024-02-21T09:30:00",
+        "comment": "Docker 컨테이너화 가이드 따라하니 바로 배포 성공했습니다. 최고예요!"
+    },
+    {
+        "post_id": 6,  # "JWT 인증 구현" 포스트
+        "user_id": 0,  # test
+        "comment_data": "2024-03-02T16:45:00",
+        "comment": "JWT 인증 구현 예제 코드가 실용적이네요. 바로 적용해봐야겠습니다."
+    },
+    {
+        "post_id": 7,  # "SQLAlchemy 연동" 포스트
+        "user_id": 2,  # admin
+        "comment_data": "2024-03-06T12:00:00",
+        "comment": "SQLAlchemy ORM 설명이 상세해서 좋았습니다. 다음 포스트도 기대됩니다!"
+    },
+    {
+        "post_id": 0,  # "FastAPI 시작하기" 포스트 (두 번째 댓글)
+        "user_id": 3,  # foo
+        "comment_data": "2024-01-17T14:30:00",
+        "comment": "저도 이 글 보고 FastAPI 입문했는데 정말 도움이 많이 됐습니다!"
+    },
+    {
+        "post_id": 9,  # "성능 최적화 팁" 포스트
+        "user_id": 1,  # user
+        "comment_data": "2024-03-16T10:15:00",
+        "comment": "성능 최적화 팁들이 정말 유용합니다. 특히 캐싱 부분이 도움이 많이 됐어요."
+    }
+]
+
+comment_db = []
+
+def add_dummy_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
+    if post_id < len(post_db):
+        user_data = search_user_by_id(user_id)
+        if user_data:
+            comment_db.append(
+                CommentData(
+                    comment_id=len(comment_db),
+                    post_id=post_id,
+                    user_id=user_id,
+                    comment_data=comment_data,
+                    comment=comment
+                )
+            )
+
+# 더미 댓글 데이터 추가
+for comment in comments:
+    add_dummy_comment(**comment)
+
+def add_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
+    """
+    댓글을 DB에 추가하는 함수
+
+    포스터 id와 유저 id가 유효하면 댓글 추가
+
+    Args:
+        post_id: 댓글이 달린 포스트 ID
+        user_id: 댓글 작성자 ID
+        comment_data: 댓글 작성 시간
+        comment: 댓글 내용
+    """
+
+    if post_id < len(post_db) and user_id < len(db):
+        comment_db.append(
+            CommentData(
+                comment_id=len(comment_db),
+                post_id=post_id,
+                user_id=user_id,
+                comment_data=comment_data,
+                comment=comment
+            )
+        )
 
 # ================ 앱 ==================================
 app = FastAPI()
@@ -593,6 +746,52 @@ async def upload_post(upload_post_request: UplaodPostRequest):
 
     return UplaodPostResponse(
         message="post_success"
+    )
+
+# ================ 게시글 보기 =================
+class PostResponse(BaseModel):
+    message: str
+    title: str
+    content: str
+    image_url: list[str]
+    posted_date: str
+    poster_image: str
+    poster_nickname: str
+    like: int
+    view: int
+    comment: list[CommentPublic]
+
+@app.get("/post/{post_id}", status_code=200)
+async def get_post(post_id: int):
+    try:
+        post_data = get_post_by_id(post_id)
+        post_data.view += 1
+
+        poster_data = search_user_by_id(post_data.poster_id)
+
+        raw_comments = get_comments_by_post_id(post_id)
+
+        comments = []
+        for comment in raw_comments:
+            comments.append(comment_data_2_comment_public(comment))
+
+        print(comments)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500
+        )
+    
+    return PostResponse(
+        message="success_get_post",
+        title=post_data.title,
+        content=post_data.content,
+        image_url=post_data.image_url,
+        posted_date=post_data.posted_date,
+        poster_image=poster_data.user_profile_image_url,
+        poster_nickname=poster_data.nickname,
+        like=post_data.like,
+        view=post_data.view,
+        comment=comments
     )
 
 # ================ 회원 정보 수정 ===============

@@ -74,7 +74,7 @@ class CommentData(BaseModel):
     comment_id: int
     post_id: int
     user_id: int
-    comment_data: str
+    comment_date: str
     comment: str
 
 class CommentPublic(BaseModel):
@@ -513,68 +513,68 @@ comments = [
     {
         "post_id": 0,  # "FastAPI 시작하기" 포스트
         "user_id": 1,  # user
-        "comment_data": "2024-01-16T09:15:00",
+        "comment_date": "2024-01-16T09:15:00",
         "comment": "FastAPI 정말 빠르고 좋네요! 이 글 덕분에 쉽게 시작할 수 있었습니다."
     },
     {
         "post_id": 1,  # "Python 타입 힌트" 포스트
         "user_id": 2,  # admin
-        "comment_data": "2024-01-21T11:30:00",
+        "comment_date": "2024-01-21T11:30:00",
         "comment": "타입 힌트는 처음에 번거로워 보였는데, 익숙해지니 디버깅이 훨씬 편해졌어요."
     },
     {
         "post_id": 2,  # "RESTful API 설계" 포스트
         "user_id": 3,  # foo
-        "comment_data": "2024-02-02T14:20:00",
+        "comment_date": "2024-02-02T14:20:00",
         "comment": "REST API 설계 원칙 정리가 깔끔하네요. 북마크 해둡니다!"
     },
     {
         "post_id": 3,  # "Pydantic 데이터 검증" 포스트
         "user_id": 0,  # test
-        "comment_data": "2024-02-11T10:45:00",
+        "comment_date": "2024-02-11T10:45:00",
         "comment": "Pydantic의 자동 검증 기능이 정말 강력합니다. 실무에서 많은 도움이 되고 있어요."
     },
     {
         "post_id": 4,  # "비동기 프로그래밍" 포스트
         "user_id": 1,  # user
-        "comment_data": "2024-02-16T15:00:00",
+        "comment_date": "2024-02-16T15:00:00",
         "comment": "async/await 패턴 설명이 명확해서 이해하기 쉬웠습니다. 감사합니다!"
     },
     {
         "post_id": 5,  # "Docker로 FastAPI" 포스트
         "user_id": 3,  # foo
-        "comment_data": "2024-02-21T09:30:00",
+        "comment_date": "2024-02-21T09:30:00",
         "comment": "Docker 컨테이너화 가이드 따라하니 바로 배포 성공했습니다. 최고예요!"
     },
     {
         "post_id": 6,  # "JWT 인증 구현" 포스트
         "user_id": 0,  # test
-        "comment_data": "2024-03-02T16:45:00",
+        "comment_date": "2024-03-02T16:45:00",
         "comment": "JWT 인증 구현 예제 코드가 실용적이네요. 바로 적용해봐야겠습니다."
     },
     {
         "post_id": 7,  # "SQLAlchemy 연동" 포스트
         "user_id": 2,  # admin
-        "comment_data": "2024-03-06T12:00:00",
+        "comment_date": "2024-03-06T12:00:00",
         "comment": "SQLAlchemy ORM 설명이 상세해서 좋았습니다. 다음 포스트도 기대됩니다!"
     },
     {
         "post_id": 0,  # "FastAPI 시작하기" 포스트 (두 번째 댓글)
         "user_id": 3,  # foo
-        "comment_data": "2024-01-17T14:30:00",
+        "comment_date": "2024-01-17T14:30:00",
         "comment": "저도 이 글 보고 FastAPI 입문했는데 정말 도움이 많이 됐습니다!"
     },
     {
         "post_id": 9,  # "성능 최적화 팁" 포스트
         "user_id": 1,  # user
-        "comment_data": "2024-03-16T10:15:00",
+        "comment_date": "2024-03-16T10:15:00",
         "comment": "성능 최적화 팁들이 정말 유용합니다. 특히 캐싱 부분이 도움이 많이 됐어요."
     }
 ]
 
 comment_db = []
 
-def add_dummy_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
+def add_dummy_comment(post_id: int, user_id: int, comment_date: str, comment: str) -> None:
     if post_id < len(post_db):
         user_data = search_user_by_id(user_id)
         if user_data:
@@ -583,7 +583,7 @@ def add_dummy_comment(post_id: int, user_id: int, comment_data: str, comment: st
                     comment_id=len(comment_db),
                     post_id=post_id,
                     user_id=user_id,
-                    comment_data=comment_data,
+                    comment_date=comment_date,
                     comment=comment
                 )
             )
@@ -702,7 +702,7 @@ def add_like(post_id: int, user_id: int) -> bool:
 
     return True
 
-def add_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> None:
+def add_comment(post_id: int, user_id: int, comment_date: str, comment: str) -> None:
     """
     댓글을 DB에 추가하는 함수
 
@@ -721,7 +721,7 @@ def add_comment(post_id: int, user_id: int, comment_data: str, comment: str) -> 
                 comment_id=len(comment_db),
                 post_id=post_id,
                 user_id=user_id,
-                comment_data=comment_data,
+                comment_date=comment_date,
                 comment=comment
             )
         )
@@ -958,6 +958,7 @@ async def delete_post(post_id: int):
 #================= 좋아요 =====================
 class LikePostRequest(BaseModel):
     user_id: int = Field(...)
+
 class LikePostResponse(BaseModel):
     message: str = Field(...)
 
@@ -997,6 +998,7 @@ async def like_post(post_id: int, like_post_requset: LikePostRequest):
 # ================ 좋아요 취소 =================
 class UnlikePostRequest(BaseModel):
     user_id: int = Field(...)
+
 class UnlikePostResponse(BaseModel):
     message: str = Field(...)
 
@@ -1028,6 +1030,41 @@ async def unlike_post(post_id: int, like_post_requset: UnlikePostRequest):
     
     return UnlikePostResponse(
         message="unlike_success"
+    )
+
+# ================ 댓글 작성 ===================
+class CommentWriteRequest(BaseModel):
+    user_id: int = Field(...)
+    comment: str = Field(...)
+
+class CommentWriteResponse(BaseModel):
+    message: str = Field(...)
+
+@app.post("/post/{post_id}/comment", status_code=200)
+async def write_comment(post_id: int, comment_write_request: CommentWriteRequest):
+    try:
+        post = get_post_by_id(post_id)
+        user = search_user_by_id(comment_write_request.user_id)
+
+        if post is None or user is None:
+            raise HTTPException(
+                status_code=404
+            )
+        
+        time_stamp = "2001"
+
+        add_comment(post_id, comment_write_request.user_id, time_stamp, comment_write_request.comment)
+        
+    except HTTPException as he:
+        raise he
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
+    return CommentWriteResponse(
+        message="댓글을 추가하였습니다."
     )
 
 # ================ 회원 정보 수정 ===============

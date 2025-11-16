@@ -1238,49 +1238,51 @@ async def delete_comment(post_id: int, comment_delete_request: CommentDeleteRequ
             status_code=500,
             detail=e
         )
+
     return CommentDeleteResponse(
         message="댓글을 삭제하였습니다."
     )
 
 # ================ 회원 정보 수정 ===============
-class ChangeUserDate(LoginRequest):
-    nickname: str = Field(..., description='사용자 닉네임', max_length=10)
+class UserEditRequset(NicknameRequest):
+    user_id: int = Field(...)
     profile_image: str = Field(..., description='사용자 프로필 사진')
 
-    @field_validator('nickname')
-    @classmethod
-    def validate_nickname(cls, v: str) -> str:
-        if not validate_nickname(v):
-            raise ValueError("Invalid nickname format")
-
-        return v
+class UserEditResponse(BaseModel):
+    message: str = Field(...)
 
 
-@app.patch("/user/{email}/data")
-async def update_profile(change_user_data: ChangeUserDate):
+@app.patch("/users/edit")
+async def edit_profile(edit_user_request: UserEditRequset):
+    try:
+        user = search_user_by_id(edit_user_request.user_id)
+
+        if user is None:
+            raise HTTPException(
+                status_code=404, 
+                detail="사용자를 찾을 수 없습니다."
+            )
+        
+        same_nickname_user = search_user_by_nickname(edit_user_request.nickname)
+
+        if same_nickname_user:
+            raise HTTPException(
+                status_code=409,
+                detail="중복되는 닉네임입니다."
+            )
+        
+        user.nickname = edit_user_request.nickname
+        user.user_profile_image_url = edit_user_request.profile_image
     
-    user_data = search_user_by_email(change_user_data.email)
-
-    if user_data is None:
-        raise HTTPException(status_code=403, detail="fail to find user")
+    except HTTPException as he:
+        raise he
     
-    user_data.nickname = change_user_data.nickname
-    user_data.user_profile_image_url = change_user_data.profile_image
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=e
+        )
 
-    return {
-        "data": user_data
-    }
-
-@app.patch("/user/{email}/password")
-async def update_password(change_user_data: LoginRequest):
-    
-    user_data = search_user_by_email(change_user_data.email)
-
-    if user_data is None:
-        raise HTTPException(status_code=403, detail="fail to find user")
-    
-    user_data.password = change_user_data.password
-
-    return {
-        "data": user_data
-    }
+    return UserEditResponse(
+        message="사용자 정보 수정이 완료되었습니다."
+    )

@@ -1,6 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from schema.http.requset import EmailRequest, PasswordRequest, NicknameRequest
+from schema.db.user import UserPublic
+from dependencies import UserDB
+
+BASE_IMAGE_URL = "http://base.image.com"
+
 router = APIRouter(
     prefix="/users",
     tags=["Users"]
@@ -18,48 +24,42 @@ class SignupResponse(BaseModel):
     data: SignupData = Field(...)
 
 
-@app.post("/users/signup", status_code=201)
-async def signup(signup_request: SignupRequest):
+@router.post("/signup", status_code=201)
+async def signup(signup_request: SignupRequest, user_db: UserDB):
 
-    if search_user_by_email(signup_request.email) is not None:
+    if user_db.search_user_by_email(signup_request.email) is not None:
         raise HTTPException(
             status_code=409,
             detail="Email already in use."
         )
-    
-    if search_user_by_nickname(signup_request.nickname) is not None:
+
+    if user_db.search_user_by_nickname(signup_request.nickname) is not None:
         raise HTTPException(
             status_code=409,
             detail="nickname already in use."
         )
-    
+
     # 저장소에 이미지 업로드
     # signup_request.image_url = 프로필 저장된 저장소 url
 
     try:
-        add_user(
+        user_db.add_user(
             email=signup_request.email,
             password=signup_request.password,
             nickname=signup_request.nickname,
             user_profile_image_url=signup_request.image_url
         )
 
-        user_data = search_user_by_email(signup_request.email)
+        user_data = user_db.search_user_by_email(signup_request.email)
 
-        if user_data:
+        if user_data is None:
             raise HTTPException(
                 status_code=500,
-                detail={
-                "error": "DATABASE_ACCESS_ERROR",
-                "message": "게시글 조회 중 데이터베이스 오류",
-                "details": {
-                    "available_posts": len(post_db),
-                    "error_type": "IndexError"
-                },
-                "timestamp": "ㅁㅇㄹㅁㄴㄹㅇ"
-            }
+                detail="Failed to create user"
             )
-        
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -81,48 +81,21 @@ class LoginResponse(BaseModel):
     message: str = Field(...)
     data: UserPublic = Field(...)
 
-@app.post("/users/login", status_code=200)
-async def login(login_request: LoginRequest):
+@router.post("/login", status_code=200)
+async def login(login_request: LoginRequest, user_db: UserDB):
     # 형식 검증: 솔직히 이건 프런트의 몫이다.
 
-    user_data = authenticate_user(login_request.email, login_request.password)
+    user_data = user_db.authenticate_user(login_request.email, login_request.password)
     # 디비에서 이메일 검색
     if user_data is None:
         raise HTTPException(status_code=403, detail="fail login")
     
-    public_user_data = user_data_2_user_public(user_data)
+    public_user_data = user_db.user_data_2_user_public(user_data)
 
     return LoginResponse(
         message="login_success",
         data=public_user_data
     )
-
-# ================ 게시글 목록 ==================
-class PostlistResponse(BaseModel):
-    message: str = Field(...)
-    data: list[PostData] = Field(...)
-    next: int = Field(...)
-
-@app.get("/post", status_code=200)
-async def get_postlist(offset: int = 0, limit:int = 20):
-
-    try:
-        next_offset = min(len(post_db), offset + limit)
-
-        # DB에서 포스터를 가져오는 코드
-        posts = post_db[offset:next_offset]
-    except Exception as e:
-        raise HTTPException(
-            status_code=500
-        )
-
-    return PostlistResponse(
-        message="get_postlist_success",
-        data=posts,
-        next=next_offset if next_offset != len(post_db) else -1
-    )
-
-
 
 # ================ 회원 정보 수정 ===============
 class UserEditRequset(NicknameRequest):
@@ -131,10 +104,10 @@ class UserEditRequset(NicknameRequest):
 class UserEditResponse(BaseModel):
     message: str = Field(...)
 
-@app.patch("/users/{user_id}/profile")
-async def edit_profile(user_id:int, edit_user_request: UserEditRequset):
+@router.patch("/{user_id}/profile")
+async def edit_profile(user_id:int, edit_user_request: UserEditRequset, user_db: UserDB):
     try:
-        user = search_user_by_id(user_id)
+        user = user_db.search_user_by_id(user_id)
 
         if user is None:
             raise HTTPException(
@@ -142,7 +115,7 @@ async def edit_profile(user_id:int, edit_user_request: UserEditRequset):
                 detail="사용자를 찾을 수 없습니다."
             )
         
-        same_nickname_user = search_user_by_nickname(edit_user_request.nickname)
+        same_nickname_user = user_db.search_user_by_nickname(edit_user_request.nickname)
 
         if same_nickname_user:
             raise HTTPException(
@@ -174,10 +147,10 @@ class PasswordChangeResponse(BaseModel):
     message: str = Field(...)
 
 
-@app.patch("/users/{user_id}/password")
-async def change_passwd(user_id: int, password_change_request: PasswordChangeRequest):
+@router.patch("/{user_id}/password")
+async def change_passwd(user_id: int, password_change_request: PasswordChangeRequest, user_db: UserDB):
     try:
-        user = search_user_by_id(user_id)
+        user = user_db.search_user_by_id(user_id)
 
         if user is None:
             raise HTTPException(
@@ -202,11 +175,10 @@ async def change_passwd(user_id: int, password_change_request: PasswordChangeReq
 
 # ================ 회원탈퇴 =================
 
-@app.delete("/users/{user_id}")
-async def delete_user(user_id: int):
+@router.delete("/{user_id}")
+async def delete_user(user_id: int, user_db: UserDB):
     try:
-        print(db)
-        user = search_user_by_id(user_id)
+        user = user_db.search_user_by_id(user_id)
 
         if user is None:
             raise HTTPException(
@@ -214,7 +186,7 @@ async def delete_user(user_id: int):
                 detail="사용자를 찾을 수 없습니다."
             )
         
-        if not delete_user_by_user_id(user_id):
+        if not user_db.delete_user_by_user_id(user_id):
             raise HTTPException(
                 status_code=400,
                 detail="사용자를 삭제할 수 없습니다."

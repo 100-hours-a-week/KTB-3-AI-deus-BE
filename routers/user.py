@@ -1,9 +1,12 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
 
-from schema.http.requset import EmailRequest, PasswordRequest, NicknameRequest
-from schema.db.user import UserPublic
-from dependencies import UserDB
+from dependencies import UserModelDep
+
+from schemas.auth import SignupRequest, SignupResponse, LoginRequest, LoginResponse 
+from schemas.profile import (
+    UserEditRequest, UserEditResponse, 
+    PasswordChangeRequest, PasswordChangeResponse, UserProfileResponse
+)
 
 BASE_IMAGE_URL = "http://base.image.com"
 
@@ -13,19 +16,8 @@ router = APIRouter(
 )
 
 # ================= 회원가입 =========================
-class SignupRequest(EmailRequest, PasswordRequest, NicknameRequest):
-    image_url: str = Field(default=BASE_IMAGE_URL)
-
-class SignupData(BaseModel):
-    user_id: int = Field(...)
-
-class SignupResponse(BaseModel):
-    message: str = Field(...)
-    data: SignupData = Field(...)
-
-
 @router.post("/signup", status_code=201)
-async def signup(signup_request: SignupRequest, user_db: UserDB):
+async def signup(signup_request: SignupRequest, user_db: UserModelDep):
 
     if user_db.search_user_by_email(signup_request.email) is not None:
         raise HTTPException(
@@ -39,20 +31,17 @@ async def signup(signup_request: SignupRequest, user_db: UserDB):
             detail="nickname already in use."
         )
 
-    # 저장소에 이미지 업로드
-    # signup_request.image_url = 프로필 저장된 저장소 url
-
     try:
-        user_db.add_user(
+        user_data = user_db.search_user_by_email(signup_request.email)
+
+        user_id = user_db.add_user(
             email=signup_request.email,
             password=signup_request.password,
             nickname=signup_request.nickname,
             user_profile_image_url=signup_request.image_url
         )
 
-        user_data = user_db.search_user_by_email(signup_request.email)
-
-        if user_data is None:
+        if user_data is not None:
             raise HTTPException(
                 status_code=500,
                 detail="Failed to create user"
@@ -68,21 +57,12 @@ async def signup(signup_request: SignupRequest, user_db: UserDB):
 
     return SignupResponse(
         message="signup_success",
-        data=SignupData(
-            user_id=user_data.user_id
-        )
+        user_id=user_id
     )
 
 # ================= 로그인 ==========================
-class LoginRequest(EmailRequest, PasswordRequest):
-    pass
-
-class LoginResponse(BaseModel):
-    message: str = Field(...)
-    data: UserPublic = Field(...)
-
 @router.post("/login", status_code=200)
-async def login(login_request: LoginRequest, user_db: UserDB):
+async def login(login_request: LoginRequest, user_db: UserModelDep):
     # 형식 검증: 솔직히 이건 프런트의 몫이다.
 
     user_data = user_db.authenticate_user(login_request.email, login_request.password)
@@ -97,15 +77,28 @@ async def login(login_request: LoginRequest, user_db: UserDB):
         data=public_user_data
     )
 
-# ================ 회원 정보 수정 ===============
-class UserEditRequset(NicknameRequest):
-    profile_image: str = Field(..., description='사용자 프로필 사진')
+# ================= 회원 정보 조회 ====================
+@router.get("/{user_id}/profile")
+async def get_profile(user_id: int, user_db: UserModelDep):
+    try:
+        user_data = user_db.search_user_by_id(user_id)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
-class UserEditResponse(BaseModel):
-    message: str = Field(...)
+    return UserProfileResponse(
+        image_url=user_data.user_profile_image_url,
+        email=user_data.email,
+        nickname=user_data.nickname
+    )
 
+# ================ 회원 정보 수정 =====================
 @router.patch("/{user_id}/profile")
-async def edit_profile(user_id:int, edit_user_request: UserEditRequset, user_db: UserDB):
+async def edit_profile(user_id:int, edit_user_request: UserEditRequest, user_db: UserModelDep):
     try:
         user = user_db.search_user_by_id(user_id)
 
@@ -124,7 +117,7 @@ async def edit_profile(user_id:int, edit_user_request: UserEditRequset, user_db:
             )
         
         user.nickname = edit_user_request.nickname
-        user.user_profile_image_url = edit_user_request.profile_image
+        user.user_profile_image_url = edit_user_request.image_url
     
     except HTTPException as he:
         raise he
@@ -132,23 +125,16 @@ async def edit_profile(user_id:int, edit_user_request: UserEditRequset, user_db:
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=e
+            detail=str(e)
         )
 
     return UserEditResponse(
         message="사용자 정보 수정이 완료되었습니다."
     )
 
-# ================ 비밀번호 변경 ===============
-class PasswordChangeRequest(PasswordRequest):
-    pass
-
-class PasswordChangeResponse(BaseModel):
-    message: str = Field(...)
-
-
+# ================ 비밀번호 변경 ======================
 @router.patch("/{user_id}/password")
-async def change_passwd(user_id: int, password_change_request: PasswordChangeRequest, user_db: UserDB):
+async def change_passwd(user_id: int, password_change_request: PasswordChangeRequest, user_db: UserModelDep):
     try:
         user = user_db.search_user_by_id(user_id)
 
@@ -166,17 +152,16 @@ async def change_passwd(user_id: int, password_change_request: PasswordChangeReq
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=e
+            detail=str(e)
         )
 
     return PasswordChangeResponse(
         message="비밀번호 수정이 완료되었습니다."
     )
 
-# ================ 회원탈퇴 =================
-
+# ================ 회원탈퇴 =========================
 @router.delete("/{user_id}")
-async def delete_user(user_id: int, user_db: UserDB):
+async def delete_user(user_id: int, user_db: UserModelDep):
     try:
         user = user_db.search_user_by_id(user_id)
 

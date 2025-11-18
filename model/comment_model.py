@@ -1,6 +1,6 @@
+from pydantic import BaseModel
+from .user_model import UserData
 
-from schema.db.comment import CommentData, CommentPublic
-from schema.db.user import UserData
 # 10개의 댓글 더미 데이터
 comments = [
     {
@@ -65,7 +65,21 @@ comments = [
     }
 ]
 
-class CommentDBClient:
+class CommentData(BaseModel):
+    comment_id: int
+    post_id: int
+    user_id: int
+    comment_date: str
+    comment: str
+
+class CommentPublic(BaseModel):
+    commenter_image: str
+    commenter_nickname: str
+    commented_date: str
+    comment: str
+
+
+class CommentModel:
     def __init__(self):
         self.comment_db = []
 

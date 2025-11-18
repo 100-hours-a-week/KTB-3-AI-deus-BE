@@ -1,10 +1,12 @@
 from pydantic import BaseModel, Field, field_validator
-
 import re
+
 
 EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 PW_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$')
 NICKNAME_RE = re.compile(r'^\S+$')
+
+
 
 class EmailRequest(BaseModel):
     email: str = Field(..., description="사용자 이메일")

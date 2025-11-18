@@ -1,9 +1,34 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
 
-from schema.db.post import PostData
-from schema.db.comment import CommentPublic
-from dependencies import PostDB, UserDB, CommentDB, LikeDB
+from dependencies import PostModelDep, UserModelDep, CommentModelDep, LikeModelDep
+
+from schemas.post import(
+    UplaodPostRequest,
+    UplaodPostResponse,
+    PostResponse,
+    PostListResponse,
+    DeletePostRequest,
+    DeletePostResponse,
+    EditPostRequest,
+    EditPostResponse
+)
+
+from schemas.like import(
+    LikePostRequest,
+    LikePostResponse,
+    UnlikePostRequest,
+    UnlikePostResponse
+)
+
+from schemas.comment import(
+    CommentEditRequest,
+    CommentEditResponse,
+    CommentWriteRequest,
+    CommentWriteResponse,
+    CommentDeleteRequest,
+    CommentDeleteResponse
+    
+)
 
 router = APIRouter(
     prefix="/posts",
@@ -11,18 +36,8 @@ router = APIRouter(
 )
 
 # ================ 게시글 작성 =================
-class UplaodPostRequest(BaseModel):
-    title: str = Field(...)
-    content: str = Field(...)
-    image_url: list[str] = Field(...,default_factory=[])
-    poster_id: int = Field(...)
-
-class UplaodPostResponse(BaseModel):
-    message: str = Field(...)
-
-
 @router.post("", status_code=200)
-async def upload_post(upload_post_request: UplaodPostRequest, post_db: PostDB):
+async def upload_post(upload_post_request: UplaodPostRequest, post_db: PostModelDep):
     try:
         new_post_id = post_db.add_post(
             title=upload_post_request.title,
@@ -40,20 +55,8 @@ async def upload_post(upload_post_request: UplaodPostRequest, post_db: PostDB):
     )
 
 # ================ 게시글 보기 =================
-class PostResponse(BaseModel):
-    message: str
-    title: str
-    content: str
-    image_url: list[str]
-    posted_date: str
-    poster_image: str
-    poster_nickname: str
-    like: int
-    view: int
-    comment: list[CommentPublic]
-
 @router.get("/{post_id}", status_code=200)
-async def get_post(post_id: int, post_db: PostDB, user_db: UserDB, coomment_db: CommentDB):
+async def get_post(post_id: int, post_db: PostModelDep, user_db: UserModelDep, coomment_db: CommentModelDep):
     try:
         post_data = post_db.get_post_by_id(post_id)
         post_data.view += 1
@@ -85,13 +88,8 @@ async def get_post(post_id: int, post_db: PostDB, user_db: UserDB, coomment_db: 
     )
 
 # ================ 게시글 목록 ==================
-class PostlistResponse(BaseModel):
-    message: str = Field(...)
-    data: list[PostData] = Field(...)
-    next: int = Field(...)
-
 @router.get("", status_code=200)
-async def get_postlist(post_db: PostDB, offset: int = 0, limit:int = 20):
+async def get_postlist(post_db: PostModelDep, offset: int = 0, limit:int = 20):
 
     try:
         posts, next_offset = post_db.get_posts(offset, limit)
@@ -102,21 +100,15 @@ async def get_postlist(post_db: PostDB, offset: int = 0, limit:int = 20):
             status_code=500,
         )
 
-    return PostlistResponse(
+    return PostListResponse(
         message="get_postlist_success",
         data=posts,
         next=next_offset
     )
 
 # ================ 게시글 삭제 =================
-class DeletePostRequest(BaseModel):
-    user_id: int = Field(...)
-
-class DeletePostResponse(BaseModel):
-    message: str = Field(...)
-
 @router.delete("/{post_id}", status_code=200)
-async def delete_post(post_id: int, delete_post_request: DeletePostRequest, post_db: PostDB, user_db: UserDB):
+async def delete_post(post_id: int, delete_post_request: DeletePostRequest, post_db: PostModelDep, user_db: UserModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         user = user_db.search_user_by_id(delete_post_request.user_id)
@@ -143,20 +135,9 @@ async def delete_post(post_id: int, delete_post_request: DeletePostRequest, post
         message="post_delete_success"
     )
 
-
 # ================ 게시글 수정 =================
-class EditPostRequest(BaseModel):
-    user_id: int = Field(...)
-    title: str = Field(...)
-    content: str = Field(...)
-    image_url: list[str] = Field(...,default_factory=[])
-
-class EditPostResponse(BaseModel):
-    message: str = Field(...)
-
-
 @router.patch("/{post_id}", status_code=200)
-async def edit_post(post_id: int, edit_post_request: EditPostRequest, post_db: PostDB, user_db: UserDB):
+async def edit_post(post_id: int, edit_post_request: EditPostRequest, post_db: PostModelDep, user_db: UserModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         if post is None:
@@ -194,16 +175,9 @@ async def edit_post(post_id: int, edit_post_request: EditPostRequest, post_db: P
         message="게시글을 수정하였습니다."
     )
 
-
 #================= 좋아요 =====================
-class LikePostRequest(BaseModel):
-    user_id: int = Field(...)
-
-class LikePostResponse(BaseModel):
-    message: str = Field(...)
-
 @router.post("/{post_id}/like", status_code=200)
-async def like_post(post_id: int, like_post_requset: LikePostRequest, post_db: PostDB, user_db: UserDB, like_db: LikeDB):
+async def like_post(post_id: int, like_post_requset: LikePostRequest, post_db: PostModelDep, user_db: UserModelDep, like_db: LikeModelDep):
     
     try:
         post = post_db.get_post_by_id(post_id)
@@ -228,7 +202,7 @@ async def like_post(post_id: int, like_post_requset: LikePostRequest, post_db: P
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=e
+            detail=str(e)
         )
         
     return LikePostResponse(
@@ -236,14 +210,8 @@ async def like_post(post_id: int, like_post_requset: LikePostRequest, post_db: P
     )
 
 # ================ 좋아요 취소 =================
-class UnlikePostRequest(BaseModel):
-    user_id: int = Field(...)
-
-class UnlikePostResponse(BaseModel):
-    message: str = Field(...)
-
 @router.delete("/{post_id}/like", status_code=200)
-async def unlike_post(post_id: int, like_post_requset: UnlikePostRequest, post_db: PostDB, user_db: UserDB, like_db: LikeDB):
+async def unlike_post(post_id: int, like_post_requset: UnlikePostRequest, post_db: PostModelDep, user_db: UserModelDep, like_db: LikeModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         user = user_db.search_user_by_id(like_post_requset.user_id)
@@ -274,16 +242,8 @@ async def unlike_post(post_id: int, like_post_requset: UnlikePostRequest, post_d
     )
 
 # ================ 댓글 작성 ===================
-class CommentWriteRequest(BaseModel):
-    user_id: int = Field(...)
-    comment: str = Field(...)
-
-class CommentWriteResponse(BaseModel):
-    comment_id: int
-    message: str = Field(...)
-
 @router.post("/{post_id}/comment", status_code=200)
-async def write_comment(post_id: int, comment_write_request: CommentWriteRequest, post_db: PostDB, user_db: UserDB, comment_db: CommentDB):
+async def write_comment(post_id: int, comment_write_request: CommentWriteRequest, post_db: PostModelDep, user_db: UserModelDep, comment_db: CommentModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         user = user_db.search_user_by_id(comment_write_request.user_id)
@@ -311,17 +271,8 @@ async def write_comment(post_id: int, comment_write_request: CommentWriteRequest
     )
 
 # ================ 댓글 수정 ===================
-class CommentEditRequest(BaseModel):
-    comment_id: int = Field(...)
-    user_id: int = Field(...)
-    comment: str = Field(...)
-
-class CommentEditResponse(BaseModel):
-    message: str = Field(...)
-
-
 @router.patch("/{post_id}/comment", status_code=200)
-async def write_comment(post_id: int, comment_write_request: CommentEditRequest, post_db: PostDB, user_db: UserDB, comment_db: CommentDB):
+async def write_comment(post_id: int, comment_write_request: CommentEditRequest, post_db: PostModelDep, user_db: UserModelDep, comment_db: CommentModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         user = user_db.search_user_by_id(comment_write_request.user_id)
@@ -357,15 +308,8 @@ async def write_comment(post_id: int, comment_write_request: CommentEditRequest,
     )
 
 # ================ 댓글 삭제 ===================
-class CommentDeleteRequest(BaseModel):
-    comment_id: int = Field(...)
-    user_id:int = Field(...)
-
-class CommentDeleteResponse(BaseModel):
-    message: str = Field(...)
-
 @router.delete("/{post_id}/comment", status_code=200)
-async def delete_comment(post_id: int, comment_delete_request: CommentDeleteRequest, post_db:PostDB, user_db: UserDB, comment_db: CommentDB):
+async def delete_comment(post_id: int, comment_delete_request: CommentDeleteRequest, post_db:PostModelDep, user_db: UserModelDep, comment_db: CommentModelDep):
     try:
         post = post_db.get_post_by_id(post_id)
         user = user_db.search_user_by_id(comment_delete_request.user_id)

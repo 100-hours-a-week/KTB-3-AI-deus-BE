@@ -1,4 +1,5 @@
-from schema.db.like import LikeData
+from pydantic import BaseModel
+
 
 likes = [
             {
@@ -44,7 +45,12 @@ likes = [
         ]
 
 
-class LikeDBClient:
+class LikeData(BaseModel):
+    post_id: int
+    user_id: int
+
+
+class LikeModel:
     def __init__(self):
 
         # 10개의 좋아요 더미 데이터
@@ -82,6 +88,7 @@ class LikeDBClient:
             )
         )
         return True
+
 
     def add_like(self, post_id: int, user_id: int) -> bool:
         for liked in self.like_db:

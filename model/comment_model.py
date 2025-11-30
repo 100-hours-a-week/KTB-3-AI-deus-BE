@@ -141,7 +141,7 @@ class CommentModel:
         return False
 
 
-    def comment_data_2_comment_public(comment_data: CommentData, commenter:UserData) -> CommentPublic:
+    def comment_data_2_comment_public(self, comment_data: CommentData, commenter:UserData) -> CommentPublic:
 
         return CommentPublic(
             commenter_image=commenter.user_profile_image_url,

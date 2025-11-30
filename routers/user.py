@@ -18,13 +18,6 @@ router = APIRouter(
 # ================= 회원가입 =========================
 @router.post("/signup", status_code=201)
 async def signup(signup_request: SignupRequest, user_db: UserModelDep):
-
-    if user_db.search_user_by_email(signup_request.email) is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="Email already in use."
-        )
-
     if user_db.search_user_by_nickname(signup_request.nickname) is not None:
         raise HTTPException(
             status_code=409,
@@ -32,7 +25,13 @@ async def signup(signup_request: SignupRequest, user_db: UserModelDep):
         )
 
     try:
-        user_data = user_db.search_user_by_email(signup_request.email)
+        user_data =  user_db.search_user_by_email(signup_request.email)
+
+        if user_data is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Email already in use."
+            )
 
         user_id = user_db.add_user(
             email=signup_request.email,
@@ -183,7 +182,7 @@ async def delete_user(user_id: int, user_db: UserModelDep):
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=e
+            detail="fail to delete user"
         )
 
     return {

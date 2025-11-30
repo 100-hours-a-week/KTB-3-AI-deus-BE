@@ -10,6 +10,7 @@ class UplaodPostRequest(BaseModel):
     poster_id: int = Field(...)
 
 class UplaodPostResponse(BaseModel):
+    new_post_id: int
     message: str = Field(...)
 
 class PostResponse(BaseModel):

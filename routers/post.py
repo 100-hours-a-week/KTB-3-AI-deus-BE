@@ -47,10 +47,12 @@ async def upload_post(upload_post_request: UplaodPostRequest, post_db: PostModel
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500
+            status_code=500,
+            detail="fail to upload post"
         )
 
     return UplaodPostResponse(
+        new_post_id=new_post_id,
         message="post_success"
     )
 

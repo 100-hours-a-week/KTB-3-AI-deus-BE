@@ -1,6 +1,3 @@
-
-
-
 {
     "message": "login_success",
     "data": {
